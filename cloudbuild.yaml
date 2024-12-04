@@ -17,7 +17,7 @@ steps:
       - '-c'
       - |
         echo "Archiving HTML files from GCE VM..."
-        gcloud compute ssh ${_GCE_VM} --zone=${_ZONE} --command "tar -czf /tmp/latest_html.tar.gz -C /var/www/html ."
+        gcloud compute ssh --zone=${_ZONE} ubuntu@${_GCE_VM} --command "tar -czf /tmp/latest_html.tar.gz -C /var/www/html ."
 
   # Step 3: Download the HTML archive from GCE VM to Cloud Build
   - name: 'gcr.io/cloud-builders/gcloud'
