@@ -1,3 +1,4 @@
+##script##
 steps:
   # Step 1: Authenticate with GCP using a service account key
   - name: 'gcr.io/cloud-builders/gcloud'
