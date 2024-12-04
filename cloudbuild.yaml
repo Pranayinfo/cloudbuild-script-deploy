@@ -1,5 +1,5 @@
 steps:
-  # Step 1: Authenticate with Google Cloud using a service account key
+  # Step 1: Authenticate with GCP using a service account key
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'authenticate'
     entrypoint: 'bash'
@@ -19,7 +19,7 @@ steps:
         echo "Authenticating to GKE cluster..."
         gcloud container clusters get-credentials ${_CLUSTER} --region ${_REGION} --zone ${_ZONE}
 
-  # Step 3: SSH into GCE VM, archive the HTML files, and copy them to local Cloud Build environment
+  # Step 3: SSH into GCE VM, archive the HTML files, and copy to local Cloud Build environment
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'archive-html'
     entrypoint: 'bash'
@@ -59,19 +59,7 @@ steps:
         echo "Deploying NGINX pod to Kubernetes..."
         kubectl apply -f nginx-deploy.yaml
 
-  # Step 7: Retrieve the pod name dynamically from the "free" namespace
-  - name: 'gcr.io/cloud-builders/kubectl'
-    id: 'retrieve-pod-name'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "Retrieving pod name in the 'free' namespace..."
-        POD_NAME=$(kubectl get pods -n free -l app=nginx -o jsonpath='{.items[0].metadata.name}')
-        echo "Pod name: $POD_NAME"
-        echo "POD_NAME=$POD_NAME" >> /workspace/pod_name.txt
-
-  # Step 8: Copy the HTML archive to the GKE pod
+  # Step 7: Copy the HTML archive to the GKE pod
   - name: 'gcr.io/cloud-builders/kubectl'
     id: 'copy-to-gke'
     entrypoint: 'bash'
@@ -79,10 +67,9 @@ steps:
       - '-c'
       - |
         echo "Copying HTML archive to GKE pod..."
-        POD_NAME=$(cat /workspace/pod_name.txt)
-        kubectl cp /tmp/latest_html.tar.gz free/$POD_NAME:/tmp/ -n free
+        kubectl cp /tmp/latest_html.tar.gz ${_NAMESPACE}/${_POD_NAME}:/tmp/ -n ${_NAMESPACE}
 
-  # Step 9: Extract HTML files inside the GKE pod
+  # Step 8: Extract HTML files inside the GKE pod
   - name: 'gcr.io/cloud-builders/kubectl'
     id: 'extract-html'
     entrypoint: 'bash'
@@ -90,14 +77,13 @@ steps:
       - '-c'
       - |
         echo "Extracting HTML files inside the GKE pod..."
-        POD_NAME=$(cat /workspace/pod_name.txt)
-        kubectl exec -n free $POD_NAME -- bash -c "
+        kubectl exec -n ${_NAMESPACE} ${_POD_NAME} -- bash -c "
           mkdir -p /usr/share/nginx/html &&
           tar -xzf /tmp/latest_html.tar.gz -C /usr/share/nginx/html &&
           rm /tmp/latest_html.tar.gz
         "
 
-  # Step 10: Clean up temporary files in Cloud Build environment
+  # Step 9: Clean up temporary files in Cloud Build environment
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'cleanup'
     entrypoint: 'bash'
@@ -106,16 +92,20 @@ steps:
       - |
         echo "Cleaning up temporary files..."
         rm -f /tmp/latest_html.tar.gz
-# Substitutions
+
 substitutions:
   _GCE_VM: 'jumpserver'
-  _BUCKET: 'gs://demo-bucket-sql-dump/'
+  _BUCKET: 'demo-bucket-sql-dump'
   _REGION: 'us-central1'
   _ZONE: 'us-central1-c'
   _CLUSTER: 'demo-cluster-1'
   _SERVICE_ACCOUNT_KEY: 'gs://sa-key-pranay/feisty-return-438307-f5-86e59346eec6.json'
+  _POD_NAME: 'nginx'
+  _NAMESPACE: 'free'
+
+timeout: '1200s'  # 20 minutes (adjust based on your expected time)
+
 
 options:
   logging: CLOUD_LOGGING_ONLY  # Optional: Set to CLOUD_LOGGING_ONLY if you don't want to store logs in Cloud Storage
 
-timeout: '1200s'  # 20 minutes (adjust based on your expected time)
