@@ -104,4 +104,7 @@ substitutions:
   _CLUSTER: 'demo-cluster-1'
   _SERVICE_ACCOUNT_KEY: 'gs://sa-key-pranay/feisty-return-438307-f5-86e59346eec6.json'
 
+options:
+  logging: CLOUD_LOGGING_ONLY  # Optional: Set to CLOUD_LOGGING_ONLY if you don't want to store logs in Cloud Storage
+
 timeout: '1200s'  # 20 minutes (adjust based on your expected time)
