@@ -1,14 +1,5 @@
 steps:
-  - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'authenticate-gke'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "Authenticating to GKE cluster..."
-        gcloud container clusters get-credentials ${_CLUSTER} --zone ${_ZONE}
-
-    # Step 2: SSH into the GCE VM, archive the HTML files, and check if the file exists
+  # Step 2: SSH into the GCE VM, archive the HTML files, and check file creation
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'archive-html'
     entrypoint: 'bash'
@@ -19,10 +10,10 @@ steps:
         gcloud compute ssh --zone=${_ZONE} ubuntu@${_GCE_VM} --command "
           mkdir -p /tmp &&
           tar -czf /tmp/latest_html.tar.gz -C /var/www/html . &&
-          ls -l /tmp/latest_html.tar.gz
+          ls -lh /tmp/latest_html.tar.gz || echo 'File creation failed on GCE VM'
         "
 
-  # Step 3: Download the HTML archive from GCE VM to Cloud Build and check if the file exists
+  # Step 3: Download the HTML archive from GCE VM to Cloud Build and validate transfer
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'download-html'
     entrypoint: 'bash'
@@ -31,12 +22,12 @@ steps:
       - |
         echo "Downloading HTML archive from the GCE VM..."
         gcloud compute scp ubuntu@${_GCE_VM}:/tmp/latest_html.tar.gz /tmp/ --zone=${_ZONE}
-        if [ ! -f /tmp/latest_html.tar.gz ]; then
+        if [ $? -ne 0 ] || [ ! -f /tmp/latest_html.tar.gz ]; then
           echo "ERROR: File /tmp/latest_html.tar.gz not found after download!"
           exit 1
         fi
 
-  # Step 4: Upload the HTML archive to GCS bucket
+  # Step 4: Upload the HTML archive to GCS bucket and validate upload
   - name: 'gcr.io/cloud-builders/gsutil'
     id: 'upload-html'
     entrypoint: 'bash'
@@ -44,11 +35,26 @@ steps:
       - '-c'
       - |
         echo "Uploading HTML archive to GCS bucket..."
+        if [ ! -f /tmp/latest_html.tar.gz ]; then
+          echo "ERROR: File /tmp/latest_html.tar.gz does not exist in Cloud Build environment!"
+          exit 1
+        fi
         gsutil cp /tmp/latest_html.tar.gz gs://${_BUCKET}/latest_html.tar.gz
         if [ $? -ne 0 ]; then
           echo "ERROR: Failed to upload /tmp/latest_html.tar.gz to GCS bucket."
           exit 1
         fi
+
+
+ - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'authenticate-gke'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Authenticating to GKE cluster..."
+        gcloud container clusters get-credentials ${_CLUSTER} --zone ${_ZONE}
+
 
   # Step 6: Copy the HTML archive to the GKE pod
   - name: 'gcr.io/cloud-builders/kubectl'
