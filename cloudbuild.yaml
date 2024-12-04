@@ -1,0 +1,106 @@
+steps:
+  # Step 1: Authenticate with GCP using a service account key
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'authenticate'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Authenticating with Google Cloud..."
+        gcloud auth activate-service-account --key-file=${_SERVICE_ACCOUNT_KEY}
+
+  # Step 2: Authenticate to the GKE cluster
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'authenticate-gke'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Authenticating to GKE cluster..."
+        gcloud container clusters get-credentials ${_CLUSTER} --region ${_REGION} --zone ${_ZONE}
+
+  # Step 3: SSH into GCE VM, archive the HTML files, and copy to local Cloud Build environment
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'archive-html'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Archiving HTML files from GCE VM..."
+        gcloud compute ssh ${_GCE_VM} --zone=${_ZONE} --command "tar -czf /tmp/latest_html.tar.gz -C /var/www/html ."
+
+  # Step 4: Download HTML archive from the GCE VM to Cloud Build environment
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'download-html'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Downloading HTML archive from the GCE VM..."
+        gcloud compute scp ${_GCE_VM}:/tmp/latest_html.tar.gz /tmp/ --zone=${_ZONE}
+
+  # Step 5: Upload the HTML archive to GCS bucket
+  - name: 'gcr.io/cloud-builders/gsutil'
+    id: 'upload-html'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Uploading HTML archive to GCS bucket..."
+        gsutil cp /tmp/latest_html.tar.gz gs://${_BUCKET}/latest_html.tar.gz
+
+  # Step 6: Deploy NGINX Pod using the Kubernetes manifest
+  - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'deploy-nginx-pod'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Deploying NGINX pod to Kubernetes..."
+        kubectl apply -f nginx-deploy.yaml
+
+  # Step 7: Copy the HTML archive to the GKE pod
+  - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'copy-to-gke'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Copying HTML archive to GKE pod..."
+        POD_NAME=$(kubectl get pods -n wordpress -o jsonpath='{.items[0].metadata.name}')
+        kubectl cp /tmp/latest_html.tar.gz wordpress/$POD_NAME:/tmp/ -n wordpress
+
+  # Step 8: Extract HTML files inside the GKE pod
+  - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'extract-html'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Extracting HTML files inside the GKE pod..."
+        kubectl exec -n wordpress $POD_NAME -- bash -c "
+          mkdir -p /usr/share/nginx/html &&
+          tar -xzf /tmp/latest_html.tar.gz -C /usr/share/nginx/html &&
+          rm /tmp/latest_html.tar.gz
+        "
+
+  # Step 9: Clean up temporary files in Cloud Build environment
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'cleanup'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Cleaning up temporary files..."
+        rm -f /tmp/latest_html.tar.gz
+
+# Substitutions
+substitutions:
+  _GCE_VM: 'jumpserver'
+  _BUCKET: 'gs://demo-bucket-sql-dump/'
+  _REGION: 'us-central1'
+  _ZONE: 'us-central1-c'
+  _CLUSTER: 'demo-cluster-1'
+  _SERVICE_ACCOUNT_KEY: 'gs://sa-key-pranay/feisty-return-438307-f5-86e59346eec6.json'
+
+timeout: '1200s'  # 20 minutes (adjust based on your expected time)
