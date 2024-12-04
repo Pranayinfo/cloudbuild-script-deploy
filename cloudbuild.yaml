@@ -27,7 +27,7 @@ steps:
       - '-c'
       - |
         echo "Downloading HTML archive from the GCE VM..."
-        gcloud compute scp ${_GCE_VM}:/tmp/latest_html.tar.gz /tmp/ --zone=${_ZONE}
+        gcloud compute scp ubuntu@${_GCE_VM}:/tmp/latest_html.tar.gz /tmp/ --zone=${_ZONE}
 
   # Step 4: Upload the HTML archive to GCS bucket
   - name: 'gcr.io/cloud-builders/gsutil'
