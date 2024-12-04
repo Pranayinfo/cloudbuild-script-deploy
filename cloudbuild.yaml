@@ -1,5 +1,4 @@
 steps:
-  # Step 1: Authenticate to the GKE cluster
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'authenticate-gke'
     entrypoint: 'bash'
@@ -7,7 +6,8 @@ steps:
       - '-c'
       - |
         echo "Authenticating to GKE cluster..."
-        gcloud container clusters get-credentials ${_CLUSTER} --region ${_REGION} --zone ${_ZONE}
+        gcloud container clusters get-credentials ${_CLUSTER} --zone ${_ZONE}
+
 
   # Step 2: SSH into the GCE VM, archive the HTML files, and copy to Cloud Build environment
   - name: 'gcr.io/cloud-builders/gcloud'
