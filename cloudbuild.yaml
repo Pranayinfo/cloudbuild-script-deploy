@@ -8,8 +8,7 @@ steps:
         echo "Authenticating to GKE cluster..."
         gcloud container clusters get-credentials ${_CLUSTER} --zone ${_ZONE}
 
-
-  # Step 2: SSH into the GCE VM, archive the HTML files, and copy to Cloud Build environment
+    # Step 2: SSH into the GCE VM, archive the HTML files, and check if the file exists
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'archive-html'
     entrypoint: 'bash'
@@ -17,9 +16,13 @@ steps:
       - '-c'
       - |
         echo "Archiving HTML files from GCE VM..."
-        gcloud compute ssh --zone=${_ZONE} ubuntu@${_GCE_VM} --command "tar -czf /tmp/latest_html.tar.gz -C /var/www/html ."
+        gcloud compute ssh --zone=${_ZONE} ubuntu@${_GCE_VM} --command "
+          mkdir -p /tmp &&
+          tar -czf /tmp/latest_html.tar.gz -C /var/www/html . &&
+          ls -l /tmp/latest_html.tar.gz
+        "
 
-  # Step 3: Download the HTML archive from GCE VM to Cloud Build
+  # Step 3: Download the HTML archive from GCE VM to Cloud Build and check if the file exists
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'download-html'
     entrypoint: 'bash'
@@ -28,6 +31,10 @@ steps:
       - |
         echo "Downloading HTML archive from the GCE VM..."
         gcloud compute scp ubuntu@${_GCE_VM}:/tmp/latest_html.tar.gz /tmp/ --zone=${_ZONE}
+        if [ ! -f /tmp/latest_html.tar.gz ]; then
+          echo "ERROR: File /tmp/latest_html.tar.gz not found after download!"
+          exit 1
+        fi
 
   # Step 4: Upload the HTML archive to GCS bucket
   - name: 'gcr.io/cloud-builders/gsutil'
@@ -38,16 +45,10 @@ steps:
       - |
         echo "Uploading HTML archive to GCS bucket..."
         gsutil cp /tmp/latest_html.tar.gz gs://${_BUCKET}/latest_html.tar.gz
-
-  # Step 5: Deploy the NGINX Pod using Kubernetes manifest
-  - name: 'gcr.io/cloud-builders/kubectl'
-    id: 'deploy-nginx-pod'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "Deploying NGINX pod to Kubernetes..."
-        kubectl apply -f nginx-deploy.yaml
+        if [ $? -ne 0 ]; then
+          echo "ERROR: Failed to upload /tmp/latest_html.tar.gz to GCS bucket."
+          exit 1
+        fi
 
   # Step 6: Copy the HTML archive to the GKE pod
   - name: 'gcr.io/cloud-builders/kubectl'
