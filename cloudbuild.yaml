@@ -38,7 +38,17 @@ steps:
         echo "Authenticating to GKE cluster..."
         gcloud container clusters get-credentials ${_CLUSTER} --zone ${_ZONE}
         
-  # Step 6: Copy the HTML archive to the GKE pod
+ # Step 6: Download HTML archive from GCS to Cloud Build environment
+  - name: 'gcr.io/cloud-builders/gsutil'
+    id: 'download-from-gcs'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Downloading HTML archive from GCS..."
+        gsutil cp gs://${_BUCKET}/latest_html.tar.gz /workspace/latest_html.tar.gz
+
+  # Step 7: Copy the HTML archive to the GKE pod
   - name: 'gcr.io/cloud-builders/kubectl'
     id: 'copy-to-gke'
     entrypoint: 'bash'
