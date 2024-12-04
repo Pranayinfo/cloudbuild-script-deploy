@@ -1,13 +1,4 @@
 steps:
-  - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'authenticate-gke'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "Authenticating to GKE cluster..."
-        gcloud container clusters get-credentials ${_CLUSTER} --zone ${_ZONE}
-
   # Step 2: SSH into the GCE VM, archive the HTML files, and copy to Cloud Build environment
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'archive-html'
@@ -38,7 +29,15 @@ steps:
         echo "Uploading HTML archive to GCS bucket..."
         gsutil cp /workspace/latest_html.tar.gz gs://${_BUCKET}/latest_html.tar.gz
 
-
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'authenticate-gke'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Authenticating to GKE cluster..."
+        gcloud container clusters get-credentials ${_CLUSTER} --zone ${_ZONE}
+        
   # Step 6: Copy the HTML archive to the GKE pod
   - name: 'gcr.io/cloud-builders/kubectl'
     id: 'copy-to-gke'
