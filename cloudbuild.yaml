@@ -56,6 +56,7 @@ steps:
       - '-c'
       - |
         echo "Copying HTML archive to GKE pod..."
+        kubectl get pods -n free
         kubectl cp /workspace/latest_html.tar.gz ${_NAMESPACE}/${_POD_NAME}:/tmp/ -n ${_NAMESPACE}
 
   # Step 7: Extract HTML files inside the GKE pod
