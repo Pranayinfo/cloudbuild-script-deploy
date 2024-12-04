@@ -45,8 +45,7 @@ steps:
           exit 1
         fi
 
-
- - name: 'gcr.io/cloud-builders/gcloud'
+  - name: 'gcr.io/cloud-builders/gcloud'
     id: 'authenticate-gke'
     entrypoint: 'bash'
     args:
