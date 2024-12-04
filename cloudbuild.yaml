@@ -1,16 +1,5 @@
-####
 steps:
-  # Step 1: Authenticate with GCP using a service account key
-  - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'authenticate'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "Authenticating with Google Cloud..."
-        gcloud auth activate-service-account --key-file=${_SERVICE_ACCOUNT_KEY}
-
-  # Step 2: Authenticate to the GKE cluster
+  # Step 1: Authenticate to the GKE cluster
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'authenticate-gke'
     entrypoint: 'bash'
@@ -20,7 +9,7 @@ steps:
         echo "Authenticating to GKE cluster..."
         gcloud container clusters get-credentials ${_CLUSTER} --region ${_REGION} --zone ${_ZONE}
 
-  # Step 3: SSH into GCE VM, archive the HTML files, and copy to local Cloud Build environment
+  # Step 2: SSH into the GCE VM, archive the HTML files, and copy to Cloud Build environment
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'archive-html'
     entrypoint: 'bash'
@@ -30,7 +19,7 @@ steps:
         echo "Archiving HTML files from GCE VM..."
         gcloud compute ssh ${_GCE_VM} --zone=${_ZONE} --command "tar -czf /tmp/latest_html.tar.gz -C /var/www/html ."
 
-  # Step 4: Download HTML archive from the GCE VM to Cloud Build environment
+  # Step 3: Download the HTML archive from GCE VM to Cloud Build
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'download-html'
     entrypoint: 'bash'
@@ -40,7 +29,7 @@ steps:
         echo "Downloading HTML archive from the GCE VM..."
         gcloud compute scp ${_GCE_VM}:/tmp/latest_html.tar.gz /tmp/ --zone=${_ZONE}
 
-  # Step 5: Upload the HTML archive to GCS bucket
+  # Step 4: Upload the HTML archive to GCS bucket
   - name: 'gcr.io/cloud-builders/gsutil'
     id: 'upload-html'
     entrypoint: 'bash'
@@ -50,7 +39,7 @@ steps:
         echo "Uploading HTML archive to GCS bucket..."
         gsutil cp /tmp/latest_html.tar.gz gs://${_BUCKET}/latest_html.tar.gz
 
-  # Step 6: Deploy NGINX Pod using the Kubernetes manifest
+  # Step 5: Deploy the NGINX Pod using Kubernetes manifest
   - name: 'gcr.io/cloud-builders/kubectl'
     id: 'deploy-nginx-pod'
     entrypoint: 'bash'
@@ -60,7 +49,7 @@ steps:
         echo "Deploying NGINX pod to Kubernetes..."
         kubectl apply -f nginx-deploy.yaml
 
-  # Step 7: Copy the HTML archive to the GKE pod
+  # Step 6: Copy the HTML archive to the GKE pod
   - name: 'gcr.io/cloud-builders/kubectl'
     id: 'copy-to-gke'
     entrypoint: 'bash'
@@ -70,7 +59,7 @@ steps:
         echo "Copying HTML archive to GKE pod..."
         kubectl cp /tmp/latest_html.tar.gz ${_NAMESPACE}/${_POD_NAME}:/tmp/ -n ${_NAMESPACE}
 
-  # Step 8: Extract HTML files inside the GKE pod
+  # Step 7: Extract HTML files inside the GKE pod
   - name: 'gcr.io/cloud-builders/kubectl'
     id: 'extract-html'
     entrypoint: 'bash'
@@ -84,7 +73,7 @@ steps:
           rm /tmp/latest_html.tar.gz
         "
 
-  # Step 9: Clean up temporary files in Cloud Build environment
+  # Step 8: Clean up temporary files in Cloud Build
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'cleanup'
     entrypoint: 'bash'
@@ -100,13 +89,10 @@ substitutions:
   _REGION: 'us-central1'
   _ZONE: 'us-central1-c'
   _CLUSTER: 'demo-cluster-1'
-  _SERVICE_ACCOUNT_KEY: 'gs://sa-key-pranay/feisty-return-438307-f5-86e59346eec6.json'
   _POD_NAME: 'nginx'
   _NAMESPACE: 'free'
 
-timeout: '1200s'  # 20 minutes (adjust based on your expected time)
-
-
 options:
-  logging: CLOUD_LOGGING_ONLY  # Optional: Set to CLOUD_LOGGING_ONLY if you don't want to store logs in Cloud Storage
+  logging: CLOUD_LOGGING_ONLY
 
+timeout: '1200s'  # 20 minutes (adjust as needed)
