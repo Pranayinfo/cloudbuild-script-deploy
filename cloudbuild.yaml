@@ -85,7 +85,7 @@ substitutions:
   _REGION: 'us-central1'
   _ZONE: 'us-central1-c'
   _CLUSTER: 'demo-cluster-1'
-  _POD_NAME: '$(kubectl get pods -n ${_NAMESPACE} -l app=nginx -o jsonpath='{.items[0].metadata.name}')'
+  _POD_NAME: "$(kubectl get pods -n ${_NAMESPACE} -l app=nginx -o jsonpath='{.items[0].metadata.name}')"
   _NAMESPACE: 'free'
 
 options:
