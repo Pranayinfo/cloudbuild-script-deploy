@@ -53,16 +53,26 @@ steps:
         echo "Downloading HTML archive from GCS..."
         gsutil cp gs://${_BUCKET}/latest_html.tar.gz /workspace/latest_html.tar.gz
 
-  # Step 7: Copy the HTML archive to the GKE pod
   - name: 'gcr.io/cloud-builders/kubectl'
-    id: 'copy-to-gke'
-    entrypoint: 'bash'
+    id: 'get-pod-name'
+    entrypoint: 'sh'
     args:
       - '-c'
       - |
-        kubectl get pods -n ${_NAMESPACE}
         POD_NAME=$(kubectl get pods -n ${_NAMESPACE} -l app=nginx -o jsonpath='{.items[0].metadata.name}')
+        echo "POD_NAME=${POD_NAME}" >> /workspace/pod_info.txt
+
+  # Step 2: Copy HTML Archive to GKE Pod
+  - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'copy-to-gke'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        source /workspace/pod_info.txt
+        echo "Copying files to pod: ${POD_NAME}"
         kubectl cp /workspace/latest_html.tar.gz ${_NAMESPACE}/${POD_NAME}:/tmp/ -n ${_NAMESPACE}
+
 
 
   # Step 7: Extract HTML files inside the GKE pod
