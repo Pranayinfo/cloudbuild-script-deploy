@@ -60,12 +60,7 @@ steps:
     args:
       - '-c'
       - |
-        echo "Copying HTML archive to GKE pod..."
-        kubectl get pods -n free
-        kubectl cp /workspace/latest_html.tar.gz ${_NAMESPACE}/${_POD_NAME}:/tmp/ -n ${_NAMESPACE}
-    args:
-      - '-c'
-      - |
+        kubectl get pods -n ${_NAMESPACE}
         POD_NAME=$(kubectl get pods -n ${_NAMESPACE} -l app=nginx -o jsonpath='{.items[0].metadata.name}')
         kubectl cp /workspace/latest_html.tar.gz ${_NAMESPACE}/${POD_NAME}:/tmp/ -n ${_NAMESPACE}
 
