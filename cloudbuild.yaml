@@ -44,36 +44,15 @@ steps:
         gcloud container clusters get-credentials ${_CLUSTER} --region ${_ZONE}
         
  # Step 6: Download HTML archive from GCS to Cloud Build environment
-  - name: 'gcr.io/cloud-builders/gsutil'
-    id: 'download-from-gcs'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "Downloading HTML archive from GCS..."
-        gsutil cp gs://${_BUCKET}/latest_html.tar.gz /workspace/latest_html.tar.gz
 
+  # Step 2: Use the Pod Name to Copy Files
   - name: 'gcr.io/cloud-builders/kubectl'
-    id: 'get-pod-name'
+    id: 'copy-to-pod'
     entrypoint: 'sh'
     args:
       - '-c'
       - |
-        POD=$(kubectl get pods -n ${_NAMESPACE} -l app=nginx -o jsonpath='{.items[0].metadata.name}')
-        echo "POD=${POD}" >> /workspace/pod_info.txt
-
-  # Step 2: Copy HTML Archive to GKE Pod
-  - name: 'gcr.io/cloud-builders/kubectl'
-    id: 'copy-to-gke'
-    entrypoint: 'sh'
-    args:
-      - '-c'
-      - |
-        source /workspace/pod_info.txt
-        echo "Copying files to pod: ${POD}"
-        kubectl cp /workspace/latest_html.tar.gz ${_NAMESPACE}/${POD}:/tmp/ -n ${_NAMESPACE}
-
-
+        kubectl cp /workspace/latest_html.tar.gz ${_NAMESPACE}/${_POD_NAME}:/tmp/ -n ${_NAMESPACE}
 
   # Step 7: Extract HTML files inside the GKE pod
   - name: 'gcr.io/cloud-builders/kubectl'
@@ -106,7 +85,7 @@ substitutions:
   _REGION: 'us-central1'
   _ZONE: 'us-central1-c'
   _CLUSTER: 'demo-cluster-1'
-  #_POD_NAME: 'nginx'
+  _POD_NAME: '$(kubectl get pods -n ${_NAMESPACE} -l app=nginx -o jsonpath='{.items[0].metadata.name}')'
   _NAMESPACE: 'free'
 
 options:
