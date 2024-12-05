@@ -35,12 +35,6 @@ steps:
     args:
       - -c
       - |
-        # Install kubectl and gke-gcloud-auth-plugin
-        apt-get update && apt-get install -y kubectl google-cloud-cli-gke-gcloud-auth-plugin
-
-        # Authenticate with GKE
-        gcloud config set project ${_PROJECT_ID}
-        gcloud config set compute/zone ${_ZONE}
         gcloud container clusters get-credentials ${_CLUSTER} --region ${_ZONE}
     # Step 2: Use the Pod Name to Copy Files
   - name: 'gcr.io/cloud-builders/kubectl'
@@ -75,8 +69,6 @@ steps:
       - |
         echo "Cleaning up temporary files..."
         rm -f /workspace/latest_html.tar.gz
-
-        rm -f /workspace/latest_html.tar.gz /workspace/pod_name.txt
 
 substitutions:
   _GCE_VM: 'jumpserver'
