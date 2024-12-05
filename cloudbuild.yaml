@@ -1,5 +1,4 @@
 steps:
-  # Step 2: SSH into the GCE VM, archive the HTML files, and copy to Cloud Build environment
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'archive-html'
     entrypoint: 'bash'
@@ -9,7 +8,6 @@ steps:
         echo "Archiving HTML files from GCE VM..."
         gcloud compute ssh --zone=${_ZONE} ubuntu@${_GCE_VM} --command "tar -czf /tmp/latest_html.tar.gz -C /var/www/html ."
 
-  # Step 3: Download the HTML archive from GCE VM to Cloud Build
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'download-html'
     entrypoint: 'bash'
@@ -19,7 +17,6 @@ steps:
         echo "Downloading HTML archive from the GCE VM..."
         gcloud compute scp ubuntu@${_GCE_VM}:/tmp/latest_html.tar.gz /workspace/latest_html.tar.gz --zone=${_ZONE}
 
-  # Step 4: Upload the HTML archive to GCS bucket
   - name: 'gcr.io/cloud-builders/gsutil'
     id: 'upload-html'
     entrypoint: 'bash'
@@ -36,7 +33,7 @@ steps:
       - -c
       - |
         gcloud container clusters get-credentials ${_CLUSTER} --region ${_ZONE}
-    # Step 2: Use the Pod Name to Copy Files
+        
   - name: 'gcr.io/cloud-builders/kubectl'
     id: 'copy-to-pod'
     entrypoint: 'sh'
@@ -46,7 +43,6 @@ steps:
         kubectl get pods -n free
         kubectl cp /workspace/latest_html.tar.gz ${_NAMESPACE}/${_POD_NAME}:/tmp/ -n ${_NAMESPACE}
 
-  # Step 7: Extract HTML files inside the GKE pod
   - name: 'gcr.io/cloud-builders/kubectl'
     id: 'extract-html'
     entrypoint: 'bash'
@@ -60,7 +56,6 @@ steps:
           rm /tmp/latest_html.tar.gz
         "
 
-  # Step 8: Clean up temporary files in Cloud Build
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'cleanup'
     entrypoint: 'bash'
