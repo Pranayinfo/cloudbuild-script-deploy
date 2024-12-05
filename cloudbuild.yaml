@@ -29,14 +29,19 @@ steps:
         echo "Uploading HTML archive to GCS bucket..."
         gsutil cp /workspace/latest_html.tar.gz gs://${_BUCKET}/latest_html.tar.gz
 
-  - name: 'gcr.io/cloud-builders/gcloud'
+  - name: 'google/cloud-sdk:slim'
     id: 'authenticate-gke'
-    entrypoint: 'bash'
+    entrypoint: 'sh'
     args:
-      - '-c'
+      - -c
       - |
-        echo "Authenticating to GKE cluster..."
-        gcloud container clusters get-credentials ${_CLUSTER} --zone ${_ZONE}
+        # Install kubectl and gke-gcloud-auth-plugin
+        apt-get update && apt-get install -y kubectl google-cloud-cli-gke-gcloud-auth-plugin
+
+        # Authenticate with GKE
+        gcloud config set project ${_PROJECT_ID}
+        gcloud config set compute/zone ${_ZONE}
+        gcloud container clusters get-credentials ${_CLUSTER} --region ${_ZONE}
         
  # Step 6: Download HTML archive from GCS to Cloud Build environment
   - name: 'gcr.io/cloud-builders/gsutil'
@@ -85,6 +90,7 @@ steps:
 
 substitutions:
   _GCE_VM: 'jumpserver'
+  _PROJECT_ID: 'feisty-return-438307-f5'
   _BUCKET: 'demo-bucket-sql-dump'
   _REGION: 'us-central1'
   _ZONE: 'us-central1-c'
