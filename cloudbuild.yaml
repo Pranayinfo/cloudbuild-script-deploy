@@ -42,22 +42,16 @@ steps:
         gcloud config set project ${_PROJECT_ID}
         gcloud config set compute/zone ${_ZONE}
         gcloud container clusters get-credentials ${_CLUSTER} --region ${_ZONE}
-                # Fetch the pod name dynamically and save it to a file
-        POD_NAME=$(kubectl get pods -n ${_NAMESPACE} -l app=nginx -o jsonpath='{.items[0].metadata.name}')
-        echo $POD_NAME > /workspace/pod_name.txt
-
-  # Step 5: Use the Pod Name to Copy Files
+    # Step 2: Use the Pod Name to Copy Files
   - name: 'gcr.io/cloud-builders/kubectl'
     id: 'copy-to-pod'
     entrypoint: 'sh'
     args:
       - '-c'
       - |
-        # Read the pod name from the file
-        POD_NAME=$(cat /workspace/pod_name.txt)
-        kubectl cp /workspace/latest_html.tar.gz ${_NAMESPACE}/${POD_NAME}:/tmp/ -n ${_NAMESPACE}
+        kubectl cp /workspace/latest_html.tar.gz ${_NAMESPACE}/${_POD_NAME}:/tmp/ -n ${_NAMESPACE}
 
-  # Step 6: Extract HTML files inside the GKE pod
+  # Step 7: Extract HTML files inside the GKE pod
   - name: 'gcr.io/cloud-builders/kubectl'
     id: 'extract-html'
     entrypoint: 'bash'
@@ -65,14 +59,13 @@ steps:
       - '-c'
       - |
         echo "Extracting HTML files inside the GKE pod..."
-        POD_NAME=$(cat /workspace/pod_name.txt)
-        kubectl exec -n ${_NAMESPACE} ${POD_NAME} -- bash -c "
+        kubectl exec -n ${_NAMESPACE} ${_POD_NAME} -- bash -c "
           mkdir -p /usr/share/nginx/html &&
           tar -xzf /tmp/latest_html.tar.gz -C /usr/share/nginx/html &&
           rm /tmp/latest_html.tar.gz
         "
 
-  # Step 7: Clean up temporary files in Cloud Build
+  # Step 8: Clean up temporary files in Cloud Build
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'cleanup'
     entrypoint: 'bash'
@@ -80,6 +73,8 @@ steps:
       - '-c'
       - |
         echo "Cleaning up temporary files..."
+        rm -f /workspace/latest_html.tar.gz
+
         rm -f /workspace/latest_html.tar.gz /workspace/pod_name.txt
 
 substitutions:
@@ -89,6 +84,7 @@ substitutions:
   _REGION: 'us-central1'
   _ZONE: 'us-central1-c'
   _CLUSTER: 'demo-cluster-1'
+  _POD_NAME: 'nginx-bf5d5cf98-fmxfj'
   _NAMESPACE: 'free'
 
 
